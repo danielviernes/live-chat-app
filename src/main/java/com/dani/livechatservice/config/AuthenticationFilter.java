@@ -6,6 +6,7 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.lang.NonNull;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -21,15 +22,19 @@ import static com.dani.livechatservice.config.Constants.HEADER_KEY_AUTHORIZATION
 
 @Component
 @RequiredArgsConstructor
+@Slf4j
 public class AuthenticationFilter extends OncePerRequestFilter {
 
-    private final AuthorizationService authorizationService;
+    private final JwtAuthService jwtAuthService;
     private final UserService userService;
 
     @Override
     protected void doFilterInternal(@NonNull HttpServletRequest request,
                                     @NonNull HttpServletResponse response,
                                     @NonNull FilterChain filterChain) throws ServletException, IOException {
+
+        log.info("--------- Authentication filter start ---------");
+
         final String authHeader = request.getHeader(HEADER_KEY_AUTHORIZATION);
         final String token;
         final String username;
@@ -40,12 +45,12 @@ public class AuthenticationFilter extends OncePerRequestFilter {
         }
 
         token = authHeader.substring(7);
-        username = authorizationService.extractUsername(token);
+        username = jwtAuthService.extractUsername(token);
 
         if(SecurityContextHolder.getContext().getAuthentication() == null
                 && username != null) {
-            UserDetails userDetails = this.userService.loadUserByUsername(username);
-            if(authorizationService.isTokenValid(token, userDetails)) {
+            UserDetails userDetails = this.userService.getUserByUsername(username);
+            if(jwtAuthService.isTokenValid(token, userDetails)) {
                 UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
                         userDetails,
                         null,
@@ -55,6 +60,8 @@ public class AuthenticationFilter extends OncePerRequestFilter {
                 SecurityContextHolder.getContext().setAuthentication(authToken);
             }
         }
+
+        log.info("--------- Authentication filter end ---------");
 
         filterChain.doFilter(request, response);
     }
