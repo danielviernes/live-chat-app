@@ -12,21 +12,15 @@ import org.springframework.stereotype.Service;
 
 import java.security.Key;
 import java.util.Date;
-import java.util.function.Function;
 
 @Service
 @NoArgsConstructor
-public class AuthorizationService {
+public class JwtAuthService {
 
     @Value("${lcs.auth.secret}")
     private String SECRET_KEY;
     public String extractUsername(String token) {
-        return extractClaim(token, Claims::getSubject);
-    }
-
-    public <T> T extractClaim(String token, Function<Claims, T> claimsResolver) {
-        Claims claims = extractAllClaims(token);
-        return claimsResolver.apply(claims);
+        return extractAllClaims(token).getSubject();
     }
 
     public String generateToken(UserDetails userDetails) {
@@ -34,10 +28,9 @@ public class AuthorizationService {
                 .builder()
                 .setSubject(userDetails.getUsername())
                 .setIssuedAt(new Date(System.currentTimeMillis()))
-                .setExpiration(new Date(System.currentTimeMillis() + 1000 * 5))
+                .setExpiration(new Date(System.currentTimeMillis() + 60000 * 5))
                 .signWith(getSigningKey(), SignatureAlgorithm.HS256)
                 .compact();
-
     }
 
     public Claims extractAllClaims(String token) {
@@ -55,7 +48,7 @@ public class AuthorizationService {
     }
 
     private boolean isTokenExpired(String token) {
-        return extractClaim(token, Claims::getExpiration)
+        return extractAllClaims(token).getExpiration()
                 .before(new Date());
     }
 
