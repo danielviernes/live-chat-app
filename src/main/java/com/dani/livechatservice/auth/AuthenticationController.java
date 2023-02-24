@@ -20,7 +20,7 @@ public class AuthenticationController {
     }
 
     @PostMapping(value = "/register", consumes = "application/json", produces = "application/json")
-    public ResponseEntity<AuthenticationResponse> register(@RequestBody RegistrationRequest request) {
+    public ResponseEntity<AuthenticationResponse> register(@RequestBody RegistrationRequest request) throws Exception {
         return ResponseEntity.ok(authService.register(request));
     }
 
