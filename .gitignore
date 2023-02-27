@@ -33,9 +33,11 @@ build/
 .vscode/
 
 ### MVNW ###
-
 .mvn
 mvnw*
+
+### DOCKER ###
+**/docker-compose*.yml
 
 ### TEMPORARY IGNORE ###
 **/application.yml
