@@ -28,12 +28,13 @@ public class SecurityConfig {
                 .csrf().disable().cors()
                 .and()
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/register", "/authenticate").permitAll()
+                        .requestMatchers("/authenticate/**").permitAll()
                         .anyRequest().authenticated())
                 .sessionManagement(session -> session
                         .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authenticationProvider(authenticationProvider)
                 .addFilterBefore(authenticationFilter, UsernamePasswordAuthenticationFilter.class)
+                .exceptionHandling()
 
         ;
 

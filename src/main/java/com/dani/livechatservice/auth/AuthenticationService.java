@@ -7,13 +7,18 @@ import com.dani.livechatservice.user.User;
 import com.dani.livechatservice.user.UserService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.http.HttpRequest;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+
+import java.util.Date;
 
 @Slf4j
 @Service
@@ -24,6 +29,11 @@ public class AuthenticationService {
     private final PasswordEncoder passwordEncoder;
     private final JwtAuthService jwtAuthService;
     private final AuthenticationManager authenticationManager;
+
+    @Value("${lcs.auth.jwt-expiration}")
+    private Integer ACCESS_TOKEN_EXPIRATION;
+    @Value("${lcs.auth.refresh-expiration}")
+    private Integer REFRESH_TOKEN_EXPIRATION;
 
     public AuthenticationResponse register(RegistrationRequest request) throws Exception {
         var user = User.builder()
@@ -41,11 +51,7 @@ public class AuthenticationService {
             throw new DataIntegrityViolationException("Username already exists.");
         }
 
-        var authToken = jwtAuthService.generateToken(user);
-
-        return AuthenticationResponse.builder()
-                .token(authToken)
-                .build();
+        return this.generateAuthenticationResponse(user);
     }
 
     public AuthenticationResponse authenticate(AuthenticationRequest request) {
@@ -63,10 +69,37 @@ public class AuthenticationService {
 
         SecurityContextHolder.getContext().setAuthentication(authentication);
 
-        var authToken = jwtAuthService.generateToken(user);
+        return this.generateAuthenticationResponse(user);
+    }
+
+    public AuthenticationResponse refreshToken(String refreshToken) {
+        refreshToken = refreshToken.replace("Bearer ", "");
+        var claims = jwtAuthService.extractAllClaims(refreshToken);
+        var username = claims.getSubject();
+
+        var user = userService.getUserByUsername(username);
+        var newTokenExpiration = new Date(System.currentTimeMillis() + ACCESS_TOKEN_EXPIRATION);
+        var newToken = jwtAuthService.generateToken(user, newTokenExpiration);
+
+        return AuthenticationResponse.builder()
+                .refreshToken(refreshToken)
+                .expiration(claims.getExpiration())
+                .token(newToken)
+                .expiration(newTokenExpiration)
+                .build();
+    }
+
+    private AuthenticationResponse generateAuthenticationResponse(UserDetails user) {
+        var tokenExpiration = new Date(System.currentTimeMillis() + ACCESS_TOKEN_EXPIRATION);
+        var refreshTokenExpiration = new Date(System.currentTimeMillis() + REFRESH_TOKEN_EXPIRATION);
+        var authToken = jwtAuthService.generateToken(user, tokenExpiration);
+        var refreshToken = jwtAuthService.generateToken(user, refreshTokenExpiration);
 
         return AuthenticationResponse.builder()
                 .token(authToken)
+                .expiration(tokenExpiration)
+                .refreshToken(refreshToken)
+                .refreshTokenExpiration(refreshTokenExpiration)
                 .build();
     }
 }
