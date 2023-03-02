@@ -41,3 +41,4 @@ mvnw*
 
 ### TEMPORARY IGNORE ###
 **/application.yml
+config/

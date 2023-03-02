@@ -2,6 +2,7 @@ package com.dani.livechatservice.auth;
 
 import com.dani.livechatservice.config.JwtAuthService;
 import com.dani.livechatservice.exception.ErrorsEnum;
+import com.dani.livechatservice.exception.LiveChatException;
 import com.dani.livechatservice.user.Role;
 import com.dani.livechatservice.user.User;
 import com.dani.livechatservice.user.UserService;
@@ -9,12 +10,10 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DataIntegrityViolationException;
-import org.springframework.http.HttpRequest;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -48,17 +47,19 @@ public class AuthenticationService {
             var savedUser = userService.saveUser(user);
             log.info("Registration: new user saved {}", savedUser);
         }catch (DataIntegrityViolationException e) {
-            throw new DataIntegrityViolationException("Username already exists.");
+            throw new LiveChatException("User already exists",
+                    ErrorsEnum.ALREADY_EXISTS.getErrorCode(),
+                    ErrorsEnum.ALREADY_EXISTS.getHttpStatus());
         }
 
         return this.generateAuthenticationResponse(user);
     }
 
     public AuthenticationResponse authenticate(AuthenticationRequest request) {
-        var user = userService.getUserByUsername(request.username());
+        var user = userService.loadUserByUsername(request.username());
 
         if(user == null)
-            throw new UsernameNotFoundException(ErrorsEnum.USER_NOT_FOUND.getErrorMessage());
+            throw new LiveChatException(ErrorsEnum.USER_NOT_FOUND);
 
         var authentication = authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(
@@ -77,7 +78,7 @@ public class AuthenticationService {
         var claims = jwtAuthService.extractAllClaims(refreshToken);
         var username = claims.getSubject();
 
-        var user = userService.getUserByUsername(username);
+        var user = userService.loadUserByUsername(username);
         var newTokenExpiration = new Date(System.currentTimeMillis() + ACCESS_TOKEN_EXPIRATION);
         var newToken = jwtAuthService.generateToken(user, newTokenExpiration);
 
