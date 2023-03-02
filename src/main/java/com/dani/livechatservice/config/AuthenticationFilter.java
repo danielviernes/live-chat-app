@@ -1,5 +1,7 @@
 package com.dani.livechatservice.config;
 
+import com.dani.livechatservice.exception.ErrorsEnum;
+import com.dani.livechatservice.exception.LiveChatException;
 import com.dani.livechatservice.user.UserService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.jsonwebtoken.ExpiredJwtException;
@@ -47,22 +49,21 @@ public class AuthenticationFilter extends OncePerRequestFilter {
             return;
         }
 
-        token = authHeader.substring(7);
+        token = authHeader.replace("Bearer ", "");
         try {
             username = jwtAuthService.extractUsername(token);
         } catch(ExpiredJwtException e) {
             log.error("Token is expired");
             response.setStatus(401);
             response.setHeader("error", e.getMessage());
-            response.setHeader("isTokenExpired", "true");
             response.setContentType("application/json");
-            new ObjectMapper().writeValue(response.getOutputStream(), Map.of("error_message", "Token is expired"));
+            new ObjectMapper().writeValue(response.getOutputStream(), new LiveChatException(ErrorsEnum.TOKEN_EXPIRED));
             return;
         }
 
         if(SecurityContextHolder.getContext().getAuthentication() == null
                 && username != null) {
-            UserDetails userDetails = this.userService.getUserByUsername(username);
+            UserDetails userDetails = this.userService.loadUserByUsername(username);
             if(jwtAuthService.isTokenValid(token, userDetails)) {
                 UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
                         userDetails,
